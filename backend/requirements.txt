@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg[binary]
+pwdlib[argon2]
+pyjwt
+python-multipart
+python-dotenv
+
+# Import intelligent de sujets (PDF / Word / Excel)
+pypdf
+python-docx
+openpyxl
