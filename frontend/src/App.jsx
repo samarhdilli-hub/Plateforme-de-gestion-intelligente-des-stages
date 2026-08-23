@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://127.0.0.1:5050";
 
 // =====================================================
 // APPEL API AVEC AUTHENTIFICATION
@@ -110,6 +110,107 @@ const classeBadgeSujet = (statut) => {
   }
 };
 
+// Palette utilisée par les graphiques (reprend les couleurs de App.css)
+const PALETTE_GRAPHIQUES = [
+  "#4f46e5", // indigo
+  "#7c3aed", // violet
+  "#0d8a7e", // teal
+  "#dc2626", // rouge
+  "#f59e0b", // ambre
+  "#0ea5e9", // bleu ciel
+  "#a855f7", // violet clair
+];
+
+// =====================================================
+// COMPOSANT : GRAPHIQUE EN BARRES HORIZONTALES
+// =====================================================
+// Pas de dépendance externe (pas de recharts/chart.js) : simple CSS,
+// pour rester léger et éviter tout problème d'installation côté projet.
+
+function GraphiqueBarres({ titre, donnees, couleur = "var(--indigo)" }) {
+  const maxValeur = Math.max(1, ...donnees.map((d) => d.valeur));
+
+  return (
+    <div className="graphique-carte">
+      <h3>{titre}</h3>
+
+      {donnees.length === 0 ? (
+        <p className="graphique-vide">Aucune donnée pour le moment.</p>
+      ) : (
+        <div className="graphique-barres">
+          {donnees.map((d) => (
+            <div className="barre-ligne" key={d.label}>
+              <span className="barre-label" title={d.label}>{d.label}</span>
+
+              <div className="barre-piste">
+                <div
+                  className="barre-remplissage"
+                  style={{
+                    width: `${(d.valeur / maxValeur) * 100}%`,
+                    background: couleur,
+                  }}
+                />
+              </div>
+
+              <span className="barre-valeur">{d.valeur}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =====================================================
+// COMPOSANT : GRAPHIQUE EN DONUT (CSS conic-gradient)
+// =====================================================
+
+function GraphiqueDonut({ titre, donnees }) {
+  const total = donnees.reduce((somme, d) => somme + d.valeur, 0);
+
+  let cumulPourcent = 0;
+  const segments = donnees.map((d, i) => {
+    const pourcent = total > 0 ? (d.valeur / total) * 100 : 0;
+    const debut = cumulPourcent;
+    cumulPourcent += pourcent;
+    return `${PALETTE_GRAPHIQUES[i % PALETTE_GRAPHIQUES.length]} ${debut}% ${cumulPourcent}%`;
+  });
+
+  const gradient = segments.length > 0
+    ? `conic-gradient(${segments.join(", ")})`
+    : "var(--line)";
+
+  return (
+    <div className="graphique-carte">
+      <h3>{titre}</h3>
+
+      {donnees.length === 0 ? (
+        <p className="graphique-vide">Aucune donnée pour le moment.</p>
+      ) : (
+        <div className="graphique-donut-conteneur">
+          <div className="graphique-donut" style={{ background: gradient }}>
+            <div className="graphique-donut-centre">{total}</div>
+          </div>
+
+          <ul className="graphique-legende">
+            {donnees.map((d, i) => (
+              <li key={d.label}>
+                <span
+                  className="legende-puce"
+                  style={{ background: PALETTE_GRAPHIQUES[i % PALETTE_GRAPHIQUES.length] }}
+                />
+                <span className="legende-texte">
+                  {d.label} — {d.valeur} ({total > 0 ? Math.round((d.valeur / total) * 100) : 0}%)
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function App() {
   // =====================================================
   // AUTHENTIFICATION
@@ -170,6 +271,12 @@ function App() {
 
   const [page, setPage] = useState("dashboard");
   const [recherche, setRecherche] = useState("");
+
+  // --- Recherche intelligente des sujets ---
+  const [rechercheSujets, setRechercheSujets] = useState("");
+  const [filtreCategorieSujet, setFiltreCategorieSujet] = useState("");
+  const [filtreStatutSujet, setFiltreStatutSujet] = useState("");
+  const [filtreDureeSujet, setFiltreDureeSujet] = useState("");
 
   const [afficherFormulaire, setAfficherFormulaire] = useState(false);
   const [stagiaireEnModification, setStagiaireEnModification] = useState(null);
@@ -820,7 +927,69 @@ function App() {
   });
 
   // =====================================================
-  // STATISTIQUES
+  // RECHERCHE INTELLIGENTE DES SUJETS
+  // =====================================================
+  //
+  // Filtre par mots-clés (titre, description, entreprise, technologies),
+  // par catégorie et par statut, puis trie les résultats par pertinence :
+  // une correspondance dans le titre compte plus qu'une correspondance
+  // perdue dans la description.
+
+  const categoriesDisponibles = [...new Set(
+    sujets.map((sujet) => sujet.categorie).filter(Boolean)
+  )].sort();
+
+  const dureesDisponibles = [...new Set(
+    sujets.map((sujet) => sujet.duree).filter(Boolean)
+  )].sort();
+
+  const scorePertinenceSujet = (sujet, texte) => {
+    const t = texte.trim().toLowerCase();
+    if (!t) return 0;
+
+    let score = 0;
+    if ((sujet.titre || "").toLowerCase().includes(t)) score += 4;
+    if ((sujet.technologies || "").toLowerCase().includes(t)) score += 2;
+    if ((sujet.entreprise || "").toLowerCase().includes(t)) score += 2;
+    if ((sujet.categorie || "").toLowerCase().includes(t)) score += 2;
+    if ((sujet.description || "").toLowerCase().includes(t)) score += 1;
+    return score;
+  };
+
+  const sujetsFiltres = sujets
+    .filter((sujet) => {
+      const texte = rechercheSujets.trim().toLowerCase();
+
+      const correspondTexte =
+        !texte ||
+        [sujet.titre, sujet.description, sujet.entreprise, sujet.technologies, sujet.categorie]
+          .some((champ) => (champ || "").toLowerCase().includes(texte));
+
+      const correspondCategorie =
+        !filtreCategorieSujet || sujet.categorie === filtreCategorieSujet;
+
+      const correspondStatut =
+        !filtreStatutSujet || sujet.statut === filtreStatutSujet;
+
+      const correspondDuree =
+        !filtreDureeSujet || sujet.duree === filtreDureeSujet;
+
+      return correspondTexte && correspondCategorie && correspondStatut && correspondDuree;
+    })
+    .sort(
+      (a, b) =>
+        scorePertinenceSujet(b, rechercheSujets) - scorePertinenceSujet(a, rechercheSujets)
+    );
+
+  const reinitialiserFiltresSujets = () => {
+    setRechercheSujets("");
+    setFiltreCategorieSujet("");
+    setFiltreStatutSujet("");
+    setFiltreDureeSujet("");
+  };
+
+  // =====================================================
+  // STATISTIQUES DU DASHBOARD
   // =====================================================
 
   const totalStagiaires = stagiaires.length;
@@ -832,6 +1001,53 @@ function App() {
   const stagiairesTermines = stagiaires.filter(
     (stagiaire) => stagiaire.statut === "Terminé"
   ).length;
+
+  const totalSujets = sujets.length;
+
+  const sujetsDisponibles = sujets.filter(
+    (sujet) => sujet.statut === "Disponible"
+  ).length;
+
+  const sujetsAttribues = sujets.filter(
+    (sujet) => sujet.statut === "Attribué"
+  ).length;
+
+  const totalAffectations = affectations.length;
+
+  const affectationsActives = affectations.filter(
+    (affectation) => affectation.statut === "Active"
+  ).length;
+
+  const totalUtilisateurs = utilisateurs.length;
+
+  // --- Données pour les graphiques ---
+
+  // Regroupe un tableau d'objets par la valeur d'un champ, avec un libellé
+  // de repli pour les valeurs manquantes. Renvoie [{ label, valeur }] trié
+  // par valeur décroissante.
+  const regrouperPar = (liste, champ, libelleParDefaut = "Non renseigné") => {
+    const compteur = {};
+
+    liste.forEach((item) => {
+      const cle = item[champ] || libelleParDefaut;
+      compteur[cle] = (compteur[cle] || 0) + 1;
+    });
+
+    return Object.entries(compteur)
+      .map(([label, valeur]) => ({ label, valeur }))
+      .sort((a, b) => b.valeur - a.valeur);
+  };
+
+  const sujetsParCategorie = regrouperPar(sujets, "categorie", "Non catégorisé");
+  const sujetsParStatutDonnees = regrouperPar(sujets, "statut", "Non défini");
+  const stagiairesParStatutDonnees = regrouperPar(stagiaires, "statut", "Non défini");
+  const sujetsParEntreprise = regrouperPar(sujets, "entreprise", "Non renseignée").slice(0, 6);
+
+  // Les 5 affectations les plus récentes (par ID décroissant, en l'absence
+  // d'un tri fiable sur une date parfois absente).
+  const affectationsRecentes = [...affectations]
+    .sort((a, b) => b.id - a.id)
+    .slice(0, 5);
 
   // =====================================================
   // NAVIGATION
@@ -982,15 +1198,6 @@ function App() {
             </button>
           )}
 
-          <button
-            className="nav-link"
-            onClick={() =>
-              alert("Les paramètres seront disponibles dans une prochaine étape.")
-            }
-          >
-            ⚙️ Paramètres
-          </button>
-
           {role && (
             <span
               style={{
@@ -1046,12 +1253,7 @@ function App() {
             <h2>🏠 Bienvenue sur le Dashboard</h2>
 
             <p>
-              Bienvenue sur votre plateforme de gestion des stages.
-            </p>
-
-            <p>
-              Utilisez le menu ci-dessus pour gérer vos stagiaires et vos sujets
-              de stage.
+              Vue d'ensemble de votre plateforme de gestion des stages.
             </p>
 
             <div className="stats">
@@ -1069,7 +1271,97 @@ function App() {
                 <h3>Stages terminés</h3>
                 <p>{stagiairesTermines}</p>
               </div>
+
+              <div className="stat-card">
+                <h3>Total des sujets</h3>
+                <p>{totalSujets}</p>
+              </div>
+
+              <div className="stat-card">
+                <h3>Sujets disponibles</h3>
+                <p>{sujetsDisponibles}</p>
+              </div>
+
+              <div className="stat-card">
+                <h3>Sujets attribués</h3>
+                <p>{sujetsAttribues}</p>
+              </div>
+
+              <div className="stat-card">
+                <h3>Affectations actives</h3>
+                <p>{affectationsActives}</p>
+              </div>
+
+              {role === "admin" && (
+                <div className="stat-card">
+                  <h3>Utilisateurs</h3>
+                  <p>{totalUtilisateurs}</p>
+                </div>
+              )}
             </div>
+
+            <div className="graphiques-grille">
+              <GraphiqueDonut
+                titre="📊 Sujets par statut"
+                donnees={sujetsParStatutDonnees}
+              />
+
+              <GraphiqueBarres
+                titre="🏷️ Sujets par catégorie"
+                donnees={sujetsParCategorie}
+                couleur="var(--violet)"
+              />
+
+              <GraphiqueBarres
+                titre="🎓 Stagiaires par statut"
+                donnees={stagiairesParStatutDonnees}
+                couleur="var(--teal)"
+              />
+
+              <GraphiqueBarres
+                titre="🏢 Sujets par entreprise (top 6)"
+                donnees={sujetsParEntreprise}
+                couleur="var(--indigo)"
+              />
+            </div>
+
+            {affectationsRecentes.length > 0 && (
+              <>
+                <h2 style={{ marginTop: "32px" }}>🕒 Dernières affectations</h2>
+
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Stagiaire</th>
+                        <th>Sujet</th>
+                        <th>Date</th>
+                        <th>Statut</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {affectationsRecentes.map((affectation) => (
+                        <tr key={affectation.id}>
+                          <td>{nomStagiaire(affectation.stagiaire_id)}</td>
+                          <td>{titreSujet(affectation.sujet_id)}</td>
+                          <td>{affectation.date_affectation || "-"}</td>
+                          <td>
+                            <span
+                              className={`badge-statut ${classeBadgeAffectation(
+                                affectation.statut
+                              )}`}
+                            >
+                              {affectation.statut}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1794,6 +2086,86 @@ function App() {
               )}
             </div>
 
+            <div style={{ marginTop: "25px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                  alignItems: "flex-end",
+                }}
+              >
+                <div style={{ flex: "2 1 260px" }}>
+                  <div className="search-container" style={{ marginBottom: 0 }}>
+                    <input
+                      className="search-input"
+                      type="text"
+                      placeholder="🔎 Rechercher un sujet (titre, entreprise, technologies...)"
+                      value={rechercheSujets}
+                      onChange={(e) => setRechercheSujets(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ flex: "1 1 160px" }}>
+                  <label>Catégorie</label>
+                  <select
+                    value={filtreCategorieSujet}
+                    onChange={(e) => setFiltreCategorieSujet(e.target.value)}
+                  >
+                    <option value="">Toutes</option>
+                    {categoriesDisponibles.map((categorie) => (
+                      <option key={categorie} value={categorie}>
+                        {categorie}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ flex: "1 1 160px" }}>
+                  <label>Statut</label>
+                  <select
+                    value={filtreStatutSujet}
+                    onChange={(e) => setFiltreStatutSujet(e.target.value)}
+                  >
+                    <option value="">Tous</option>
+                    <option value="Disponible">Disponible</option>
+                    <option value="Attribué">Attribué</option>
+                    <option value="Terminé">Terminé</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ flex: "1 1 140px" }}>
+                  <label>Durée</label>
+                  <select
+                    value={filtreDureeSujet}
+                    onChange={(e) => setFiltreDureeSujet(e.target.value)}
+                  >
+                    <option value="">Toutes</option>
+                    {dureesDisponibles.map((duree) => (
+                      <option key={duree} value={duree}>
+                        {duree}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {(rechercheSujets || filtreCategorieSujet || filtreStatutSujet || filtreDureeSujet) && (
+                  <button
+                    type="button"
+                    className="btn-annuler"
+                    onClick={reinitialiserFiltresSujets}
+                  >
+                    ✕ Réinitialiser
+                  </button>
+                )}
+              </div>
+
+              <p style={{ color: "var(--text-secondary)", fontSize: "13px", marginTop: "10px" }}>
+                {sujetsFiltres.length} sujet(s) sur {sujets.length}
+              </p>
+            </div>
+
             <h2>Liste des sujets de stage</h2>
 
             <div className="table-container">
@@ -1813,12 +2185,16 @@ function App() {
                 </thead>
 
                 <tbody>
-                  {sujets.length === 0 ? (
+                  {sujetsFiltres.length === 0 ? (
                     <tr>
-                      <td colSpan="9">Aucun sujet de stage disponible.</td>
+                      <td colSpan="9">
+                        {sujets.length === 0
+                          ? "Aucun sujet de stage disponible."
+                          : "Aucun sujet ne correspond à ces critères."}
+                      </td>
                     </tr>
                   ) : (
-                    sujets.map((sujet) => (
+                    sujetsFiltres.map((sujet) => (
                       <tr key={sujet.id}>
                         <td>{sujet.id}</td>
                         <td>{sujet.titre}</td>

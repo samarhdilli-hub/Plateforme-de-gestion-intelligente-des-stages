@@ -609,6 +609,151 @@ tbody tr:hover td {
 
 
 /* =====================================================
+   GRAPHIQUES DU DASHBOARD
+===================================================== */
+
+.graphiques-grille {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.graphique-carte {
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  padding: 22px 24px;
+  box-shadow: var(--shadow-card);
+}
+
+.graphique-carte h3 {
+  margin: 0 0 18px 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.graphique-vide {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+/* --- Barres horizontales --- */
+
+.graphique-barres {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.barre-ligne {
+  display: grid;
+  grid-template-columns: 140px 1fr 34px;
+  align-items: center;
+  gap: 10px;
+}
+
+.barre-label {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.barre-piste {
+  background: var(--bg-page);
+  border-radius: 20px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.barre-remplissage {
+  height: 100%;
+  border-radius: 20px;
+  transition: width 0.3s ease;
+}
+
+.barre-valeur {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: right;
+}
+
+/* --- Donut --- */
+
+.graphique-donut-conteneur {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex-wrap: wrap;
+}
+
+.graphique-donut {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.graphique-donut-centre {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 78px;
+  height: 78px;
+  background: var(--bg-surface);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--ink);
+}
+
+.graphique-legende {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.graphique-legende li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.legende-puce {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legende-texte {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* =====================================================
    RESPONSIVE
 ===================================================== */
 
@@ -642,6 +787,14 @@ tbody tr:hover td {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .graphiques-grille {
+    grid-template-columns: 1fr;
+  }
+
+  .barre-ligne {
+    grid-template-columns: 100px 1fr 30px;
   }
 
 }
