@@ -4,9 +4,7 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
-# =====================================================
 # TABLE STAGIAIRES
-# =====================================================
 
 class Stagiaire(Base):
     __tablename__ = "stagiaires"
@@ -32,9 +30,7 @@ class Stagiaire(Base):
     statut = Column(String(50), nullable=True)
 
 
-# =====================================================
 # TABLE SUJETS DE STAGE
-# =====================================================
 
 class SujetStage(Base):
     __tablename__ = "sujets"
@@ -58,9 +54,7 @@ class SujetStage(Base):
     categorie = Column(String(100), nullable=True)
 
 
-# =====================================================
 # TABLE AFFECTATIONS
-# =====================================================
 
 class Affectation(Base):
     __tablename__ = "affectations"
@@ -101,9 +95,7 @@ class Affectation(Base):
     )
 
 
-# =====================================================
 # TABLE UTILISATEURS
-# =====================================================
 
 class Utilisateur(Base):
     __tablename__ = "utilisateurs"

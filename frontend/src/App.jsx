@@ -3,12 +3,7 @@ import "./App.css";
 
 const API_URL = "http://127.0.0.1:5050";
 
-// =====================================================
-// APPEL API AVEC AUTHENTIFICATION
-// =====================================================
-// Ajoute automatiquement le jeton JWT (s'il existe) à chaque requête.
-// Si le serveur répond 401 (jeton invalide/expiré), on déconnecte
-// l'utilisateur pour le renvoyer vers l'écran de connexion.
+// Ajoute le jeton JWT aux requêtes et déconnecte l'utilisateur si le serveur répond 401.
 
 async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem("token");
@@ -121,11 +116,7 @@ const PALETTE_GRAPHIQUES = [
   "#a855f7", // violet clair
 ];
 
-// =====================================================
-// COMPOSANT : GRAPHIQUE EN BARRES HORIZONTALES
-// =====================================================
-// Pas de dépendance externe (pas de recharts/chart.js) : simple CSS,
-// pour rester léger et éviter tout problème d'installation côté projet.
+// Graphique en barres horizontales, en CSS pur (pas de librairie externe).
 
 function GraphiqueBarres({ titre, donnees, couleur = "var(--indigo)" }) {
   const maxValeur = Math.max(1, ...donnees.map((d) => d.valeur));
@@ -161,9 +152,6 @@ function GraphiqueBarres({ titre, donnees, couleur = "var(--indigo)" }) {
   );
 }
 
-// =====================================================
-// COMPOSANT : GRAPHIQUE EN DONUT (CSS conic-gradient)
-// =====================================================
 
 function GraphiqueDonut({ titre, donnees }) {
   const total = donnees.reduce((somme, d) => somme + d.valeur, 0);
@@ -212,9 +200,7 @@ function GraphiqueDonut({ titre, donnees }) {
 }
 
 function App() {
-  // =====================================================
   // AUTHENTIFICATION
-  // =====================================================
 
   const [token, setToken] = useState(() => localStorage.getItem("token"));
   const [role, setRole] = useState(() => localStorage.getItem("role"));
@@ -313,9 +299,7 @@ function App() {
     }
   }, [token]);
 
-  // =====================================================
   // STAGIAIRES
-  // =====================================================
 
   const chargerStagiaires = async () => {
     try {
@@ -425,9 +409,7 @@ function App() {
     });
   };
 
-  // =====================================================
   // SUJETS DE STAGE
-  // =====================================================
 
   const chargerSujets = async () => {
     try {
@@ -444,9 +426,7 @@ function App() {
     }
   };
 
-  // =====================================================
   // IMPORT INTELLIGENT DE SUJETS (PDF / Word / Excel)
-  // =====================================================
 
   const basculerPanneauImport = () => {
     setAfficherImportSujets((valeur) => !valeur);
@@ -548,9 +528,7 @@ function App() {
     }
   };
 
-  // =====================================================
   // AFFECTATIONS
-  // =====================================================
 
   const chargerAffectations = async () => {
     try {
@@ -689,9 +667,7 @@ function App() {
     return sujet ? sujet.titre : `#${sujetId}`;
   };
 
-  // =====================================================
   // UTILISATEURS
-  // =====================================================
 
   const chargerUtilisateurs = async () => {
     try {
@@ -909,9 +885,7 @@ function App() {
     setSujetFormulaire(sujetVide);
   };
 
-  // =====================================================
   // RECHERCHE
-  // =====================================================
 
   const stagiairesFiltres = stagiaires.filter((stagiaire) => {
     const texte = recherche.toLowerCase();
@@ -926,14 +900,7 @@ function App() {
     );
   });
 
-  // =====================================================
-  // RECHERCHE INTELLIGENTE DES SUJETS
-  // =====================================================
-  //
-  // Filtre par mots-clés (titre, description, entreprise, technologies),
-  // par catégorie et par statut, puis trie les résultats par pertinence :
-  // une correspondance dans le titre compte plus qu'une correspondance
-  // perdue dans la description.
+  // Filtre par mots-clés/catégorie/statut, puis trie par pertinence (le titre compte plus que la description).
 
   const categoriesDisponibles = [...new Set(
     sujets.map((sujet) => sujet.categorie).filter(Boolean)
@@ -988,9 +955,7 @@ function App() {
     setFiltreDureeSujet("");
   };
 
-  // =====================================================
   // STATISTIQUES DU DASHBOARD
-  // =====================================================
 
   const totalStagiaires = stagiaires.length;
 
@@ -1022,9 +987,7 @@ function App() {
 
   // --- Données pour les graphiques ---
 
-  // Regroupe un tableau d'objets par la valeur d'un champ, avec un libellé
-  // de repli pour les valeurs manquantes. Renvoie [{ label, valeur }] trié
-  // par valeur décroissante.
+  // Regroupe un tableau d'objets par la valeur d'un champ -> [{ label, valeur }] trié décroissant.
   const regrouperPar = (liste, champ, libelleParDefaut = "Non renseigné") => {
     const compteur = {};
 
@@ -1043,15 +1006,12 @@ function App() {
   const stagiairesParStatutDonnees = regrouperPar(stagiaires, "statut", "Non défini");
   const sujetsParEntreprise = regrouperPar(sujets, "entreprise", "Non renseignée").slice(0, 6);
 
-  // Les 5 affectations les plus récentes (par ID décroissant, en l'absence
-  // d'un tri fiable sur une date parfois absente).
+  // 5 affectations les plus récentes (triées par ID, la date étant parfois absente).
   const affectationsRecentes = [...affectations]
     .sort((a, b) => b.id - a.id)
     .slice(0, 5);
 
-  // =====================================================
   // NAVIGATION
-  // =====================================================
 
   const allerDashboard = () => {
     setPage("dashboard");
@@ -1090,9 +1050,7 @@ function App() {
     setSujetEnModification(null);
   };
 
-  // =====================================================
   // ÉCRAN DE CONNEXION (affiché tant qu'aucun jeton n'existe)
-  // =====================================================
 
   if (!token) {
     return (

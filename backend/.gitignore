@@ -1,6 +1,5 @@
-# Secrets — ne jamais committer
-.env
 
+.env
 # Python
 __pycache__/
 *.pyc

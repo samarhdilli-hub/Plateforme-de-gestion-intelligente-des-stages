@@ -1,4 +1,3 @@
-
 import re
 from difflib import SequenceMatcher
 from io import BytesIO
@@ -8,9 +7,7 @@ from docx import Document
 from pypdf import PdfReader
 
 
-# =========================================================
 # LABELS RECONNUS DANS LES DOCUMENTS
-# =========================================================
 
 LABELS = {
     "titre": ["titre", "title", "sujet", "intitulé", "intitule"],
@@ -44,9 +41,7 @@ def _detecter_label(ligne: str):
     return None
 
 
-# =========================================================
 # DÉCOUPAGE DU TEXTE EN BLOCS (1 bloc = 1 sujet potentiel)
-# =========================================================
 
 def _decouper_en_blocs(lignes: list) -> list:
     """Regroupe les lignes en blocs, séparés par une ligne vide ou par
@@ -139,9 +134,7 @@ def extraire_sujets_depuis_texte(texte: str) -> list:
     return [s for s in sujets if s["titre"] and len(s["titre"]) > 3]
 
 
-# =========================================================
 # LECTURE DES FICHIERS PAR FORMAT
-# =========================================================
 
 def lire_pdf(contenu: bytes) -> list:
     lecteur = PdfReader(BytesIO(contenu))
@@ -221,9 +214,7 @@ def lire_fichier(nom_fichier: str, contenu: bytes) -> list:
     )
 
 
-# =========================================================
 # CATÉGORISATION AUTOMATIQUE PAR DOMAINE
-# =========================================================
 
 CATEGORIES = {
     "Développement Web": [
@@ -271,9 +262,7 @@ def categoriser_sujet(sujet: dict) -> str:
     return meilleure_categorie
 
 
-# =========================================================
 # DÉTECTION DE DOUBLONS
-# =========================================================
 
 def detecter_doublon(titre_nouveau: str, sujets_existants: list, seuil: float = 0.80):
     """Compare le titre d'un sujet importé à ceux déjà en base et renvoie

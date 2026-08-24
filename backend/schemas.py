@@ -3,9 +3,7 @@ from datetime import date
 from typing import Optional
 
 
-# =========================================================
 # STAGIAIRE
-# =========================================================
 
 class StagiaireCreate(BaseModel):
     nom: str
@@ -36,9 +34,7 @@ class StagiaireResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# =========================================================
 # SUJET DE STAGE
-# =========================================================
 
 class SujetCreate(BaseModel):
     titre: str
@@ -63,9 +59,7 @@ class SujetResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# =========================================================
 # IMPORT INTELLIGENT DE SUJETS (PDF / Word / Excel)
-# =========================================================
 
 class DoublonProbable(BaseModel):
     id: int
@@ -90,9 +84,7 @@ class ResultatImportSujets(BaseModel):
     sujets_extraits: list[SujetExtrait]
 
 
-# =========================================================
 # AFFECTATION
-# =========================================================
 
 class AffectationCreate(BaseModel):
     stagiaire_id: int
@@ -111,9 +103,7 @@ class AffectationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# =========================================================
 # UTILISATEUR
-# =========================================================
 
 class UtilisateurCreate(BaseModel):
     nom: str
@@ -135,9 +125,7 @@ class UtilisateurResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# =========================================================
 # AUTHENTIFICATION
-# =========================================================
 
 class LoginRequest(BaseModel):
     email: str

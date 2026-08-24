@@ -12,8 +12,6 @@ from pwdlib import PasswordHash
 import ia_import
 from database import engine, Base, SessionLocal
 
-# Charge le fichier .env (database.py le fait déjà, mais on le refait ici
-# explicitement pour que ce module ne dépende pas de l'ordre d'import).
 load_dotenv()
 
 from models import (
@@ -38,9 +36,7 @@ from schemas import (
 )
 
 
-# =========================================================
 # CONSTANTES
-# =========================================================
 
 password_hash = PasswordHash.recommended()
 
@@ -52,14 +48,7 @@ TECHNOLOGIES_CONNUES = [
     "php", "angular", "vue", "node",
 ]
 
-# =========================================================
 # CONFIGURATION JWT
-# =========================================================
-#
-# ⚠️ SECRET_KEY : DOIT être définie dans le fichier .env (variable
-# JWT_SECRET_KEY). Une valeur de secours n'est utilisée qu'en dernier
-# recours pour ne pas bloquer un tout premier lancement en local, mais
-# elle affiche un avertissement — ne jamais l'utiliser en production.
 
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 
@@ -78,14 +67,10 @@ ALGORITHM = "HS256"
 
 DUREE_VALIDITE_TOKEN_MINUTES = 60
 
-# Indique à FastAPI où se trouve la route de connexion
-# (utilisé pour générer la doc /docs et extraire le token du header)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
-# =========================================================
 # APPLICATION
-# =========================================================
 
 app = FastAPI(
     title="Plateforme intelligente de gestion des stages",
@@ -93,9 +78,7 @@ app = FastAPI(
 )
 
 
-# =========================================================
 # CORS
-# =========================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -109,9 +92,7 @@ app.add_middleware(
 )
 
 
-# =========================================================
 # BASE DE DONNÉES
-# =========================================================
 
 Base.metadata.create_all(bind=engine)
 
@@ -125,9 +106,7 @@ def get_db():
         db.close()
 
 
-# =========================================================
 # OUTILS
-# =========================================================
 
 def valider_role(role: str):
     """Vérifie que le rôle fourni fait partie des rôles autorisés."""
@@ -143,8 +122,7 @@ def valider_role(role: str):
 
 
 def creer_token_acces(utilisateur_id: int, role: str) -> str:
-    """Génère un jeton JWT signé, contenant l'id et le rôle
-    de l'utilisateur, valide pour une durée limitée."""
+    """Génère un jeton JWT signé, valide pour une durée limitée."""
 
     expiration = (
         datetime.now(timezone.utc)
@@ -164,9 +142,7 @@ def utilisateur_courant(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> Utilisateur:
-    """Dépendance FastAPI : décode le jeton JWT reçu dans l'en-tête
-    Authorization, et renvoie l'utilisateur correspondant.
-    À utiliser avec Depends() sur toute route qui doit être protégée."""
+    """Décode le jeton JWT et renvoie l'utilisateur correspondant."""
 
     erreur_authentification = HTTPException(
         status_code=401,
@@ -208,9 +184,6 @@ def utilisateur_courant(
     return utilisateur
 
 
-# Variante de la dépendance d'authentification qui ne bloque pas
-# s'il n'y a pas de jeton (renvoie None au lieu de lever une erreur).
-# Utilisée uniquement pour la création du tout premier compte.
 oauth2_scheme_optionnel = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
 
 
@@ -228,12 +201,8 @@ def utilisateur_courant_optionnel(
 
 
 def exiger_roles(*roles_autorises: str):
-    """Fabrique une dépendance FastAPI qui vérifie que l'utilisateur
-    connecté possède l'un des rôles autorisés, en plus d'être authentifié.
-
-    Exemple d'utilisation sur une route :
-        utilisateur: Utilisateur = Depends(exiger_roles("admin", "encadrant"))
-    """
+    """Dépendance FastAPI qui vérifie que l'utilisateur connecté
+    possède l'un des rôles autorisés."""
 
     def verification(
         utilisateur: Utilisateur = Depends(utilisateur_courant)
@@ -252,9 +221,7 @@ def exiger_roles(*roles_autorises: str):
     return verification
 
 
-# =========================================================
 # ROUTE TEST
-# =========================================================
 
 @app.get("/")
 def accueil():
@@ -263,9 +230,7 @@ def accueil():
     }
 
 
-# =========================================================
 # AUTHENTIFICATION
-# =========================================================
 
 @app.post("/login", response_model=Token)
 def login(identifiants: LoginRequest, db: Session = Depends(get_db)):
@@ -309,15 +274,12 @@ def login(identifiants: LoginRequest, db: Session = Depends(get_db)):
 def get_utilisateur_courant(
     utilisateur: Utilisateur = Depends(utilisateur_courant)
 ):
-    """Renvoie le profil de l'utilisateur actuellement connecté,
-    à partir du jeton JWT envoyé dans l'en-tête Authorization."""
+    """Renvoie le profil de l'utilisateur actuellement connecté."""
 
     return utilisateur
 
 
-# =========================================================
 # STAGIAIRES
-# =========================================================
 
 @app.get("/stagiaires", response_model=list[StagiaireResponse])
 def get_stagiaires(
@@ -452,9 +414,7 @@ def supprimer_stagiaire(
     return {"message": "Stagiaire supprimé avec succès"}
 
 
-# =========================================================
 # SUJETS DE STAGE
-# =========================================================
 
 @app.get("/sujets", response_model=list[SujetResponse])
 def get_sujets(
@@ -554,17 +514,9 @@ def supprimer_sujet(
     return {"message": "Sujet supprimé avec succès"}
 
 
-# =========================================================
-# 🤖 IMPORT INTELLIGENT DE SUJETS (PDF / Word / Excel)
-# =========================================================
-#
-# Étape 1 — /sujets/importer : lit le fichier envoyé, en extrait des
-# sujets candidats, les catégorise et détecte les doublons probables.
-# Rien n'est encore enregistré : le frontend affiche un aperçu et laisse
-# l'utilisateur choisir quels sujets importer réellement.
-#
-# Étape 2 — /sujets/importer/confirmer : enregistre en base uniquement
-# les sujets sélectionnés par l'utilisateur.
+# IMPORT INTELLIGENT DE SUJETS (PDF / Word / Excel)
+# /sujets/importer renvoie un aperçu des sujets détectés sans rien
+# enregistrer ; /sujets/importer/confirmer enregistre la sélection.
 
 @app.post("/sujets/importer", response_model=ResultatImportSujets)
 async def importer_sujets(
@@ -663,9 +615,7 @@ def confirmer_import_sujets(
     return nouveaux_sujets
 
 
-# =========================================================
 # AFFECTATIONS
-# =========================================================
 
 @app.get("/affectations", response_model=list[AffectationResponse])
 def get_affectations(
@@ -732,10 +682,27 @@ def modifier_affectation(
     if not ancienne:
         raise HTTPException(status_code=404, detail="Affectation introuvable")
 
+    ancien_sujet_id = ancienne.sujet_id
+    etait_active = (ancienne.statut or "").strip().lower() == "active"
+
     ancienne.stagiaire_id = affectation.stagiaire_id
     ancienne.sujet_id = affectation.sujet_id
     ancienne.date_affectation = affectation.date_affectation
     ancienne.statut = affectation.statut
+
+    devient_active = (affectation.statut or "").strip().lower() == "active"
+
+    if ancien_sujet_id != affectation.sujet_id and etait_active:
+        ancien_sujet = db.query(SujetStage).filter(SujetStage.id == ancien_sujet_id).first()
+        if ancien_sujet:
+            ancien_sujet.statut = "Disponible"
+
+    nouveau_sujet = db.query(SujetStage).filter(SujetStage.id == affectation.sujet_id).first()
+    if nouveau_sujet:
+        if devient_active:
+            nouveau_sujet.statut = "Attribué"
+        elif etait_active and ancien_sujet_id == affectation.sujet_id:
+            nouveau_sujet.statut = "Disponible"
 
     db.commit()
     db.refresh(ancienne)
@@ -758,15 +725,18 @@ def supprimer_affectation(
     if not affectation:
         raise HTTPException(status_code=404, detail="Affectation introuvable")
 
+    if (affectation.statut or "").strip().lower() == "active":
+        sujet = db.query(SujetStage).filter(SujetStage.id == affectation.sujet_id).first()
+        if sujet:
+            sujet.statut = "Disponible"
+
     db.delete(affectation)
     db.commit()
 
     return {"message": "Affectation supprimée avec succès"}
 
 
-# =========================================================
-# 🤖 RECOMMANDATION INTELLIGENTE
-# =========================================================
+# RECOMMANDATION INTELLIGENTE
 
 @app.post("/recommander-sujet/{stagiaire_id}")
 def recommander_sujet(
@@ -896,9 +866,7 @@ def recommander_sujet(
     }
 
 
-# =========================================================
-# 👤 UTILISATEURS
-# =========================================================
+# UTILISATEURS
 
 @app.get("/utilisateurs", response_model=list[UtilisateurResponse])
 def get_utilisateurs(
@@ -934,10 +902,7 @@ def ajouter_utilisateur(
 ):
     nombre_utilisateurs_existants = db.query(Utilisateur).count()
 
-    # Si des comptes existent déjà, il faut être connecté en tant qu'admin
-    # pour en créer un de plus. Si la table est vide (tout premier lancement),
-    # on autorise la création sans authentification — c'est la seule façon
-    # de créer le compte admin initial.
+    # Base vide -> création libre pour permettre le tout premier compte admin.
     if nombre_utilisateurs_existants > 0:
         if utilisateur_actuel is None:
             raise HTTPException(
@@ -964,9 +929,7 @@ def ajouter_utilisateur(
 
     valider_role(utilisateur.role)
 
-    # Le tout premier compte créé sur une base vide devient automatiquement
-    # admin, quel que soit le rôle demandé — pour garantir qu'il existe
-    # toujours au moins un administrateur capable de gérer les autres comptes.
+    # Le tout premier compte créé devient automatiquement admin.
     role_final = (
         "admin" if nombre_utilisateurs_existants == 0 else utilisateur.role
     )
@@ -1045,7 +1008,12 @@ def modifier_utilisateur(
     ancien.nom = utilisateur.nom
     ancien.prenom = utilisateur.prenom
     ancien.email = utilisateur.email
-    ancien.mot_de_passe = password_hash.hash(utilisateur.mot_de_passe)
+
+    # Un mot de passe vide signifie "ne pas le changer" (cas du formulaire
+    # de modification, qui n'affiche jamais le mot de passe existant).
+    if utilisateur.mot_de_passe:
+        ancien.mot_de_passe = password_hash.hash(utilisateur.mot_de_passe)
+
     ancien.role = utilisateur.role
     ancien.actif = utilisateur.actif
 
