@@ -1,6 +1,10 @@
+import csv
+import io
+import json
 import re
+from datetime import date, timedelta
 from difflib import SequenceMatcher
-from io import BytesIO
+from io import BytesIO, StringIO
 
 from openpyxl import load_workbook
 from docx import Document
@@ -15,8 +19,16 @@ LABELS = {
     "entreprise": ["entreprise", "société", "societe", "company", "organisme"],
     "technologies": ["technologies", "compétences", "competences", "stack", "outils"],
     "duree": ["durée", "duree", "duration"],
+    "localisation": ["localisation", "lieu", "ville", "location", "site"],
+    "niveau_requis": ["niveau", "niveau requis", "niveau d'étude", "niveau d'etude", "level"],
     "domaine": ["domaine", "département", "departement", "catégorie", "categorie"],
 }
+
+CHAMPS_TEXTE = ["titre", "description", "entreprise", "technologies", "duree", "localisation", "niveau_requis"]
+
+# Nombre de jours au-delà duquel un sujet toujours "Disponible" est
+# considéré comme potentiellement obsolète.
+SEUIL_OBSOLESCENCE_JOURS = 90
 
 
 def _normaliser(texte: str) -> str:
@@ -26,7 +38,7 @@ def _normaliser(texte: str) -> str:
 def _detecter_label(ligne: str):
     """Si la ligne suit le format 'Label : valeur', renvoie (champ, valeur)."""
 
-    match = re.match(r"^\s*[-*•]?\s*([A-Za-zÀ-ÿ ]{2,25})\s*[:\-]\s*(.+)$", ligne)
+    match = re.match(r"^\s*[-*•]?\s*([A-Za-zÀ-ÿ' ]{2,30})\s*[:\-]\s*(.+)$", ligne)
 
     if not match:
         return None
@@ -75,14 +87,10 @@ def _decouper_en_blocs(lignes: list) -> list:
 
 
 def _extraire_sujet_depuis_bloc(lignes_bloc: list) -> dict:
-    sujet = {
-        "titre": "",
-        "description": "",
-        "entreprise": None,
-        "technologies": None,
-        "duree": None,
-        "domaine_indique": None,
-    }
+    sujet = {champ: None for champ in CHAMPS_TEXTE}
+    sujet["titre"] = ""
+    sujet["description"] = ""
+    sujet["domaine_indique"] = None
 
     lignes_libres = []
 
@@ -116,7 +124,7 @@ def _extraire_sujet_depuis_bloc(lignes_bloc: list) -> dict:
             if sujet["description"] else reste
         )
 
-    for champ in ["titre", "description", "entreprise", "technologies", "duree"]:
+    for champ in CHAMPS_TEXTE:
         if sujet.get(champ):
             sujet[champ] = _normaliser(sujet[champ])
 
@@ -136,9 +144,32 @@ def extraire_sujets_depuis_texte(texte: str) -> list:
 
 # LECTURE DES FICHIERS PAR FORMAT
 
+def _ocr_pdf(contenu: bytes) -> str:
+    """Convertit chaque page en image et lance la reconnaissance de texte
+    (Tesseract). Utilisé en secours pour les PDF scannés, sans texte
+    sélectionnable."""
+
+    from pdf2image import convert_from_bytes
+    import pytesseract
+
+    pages = convert_from_bytes(contenu)
+    return "\n".join(pytesseract.image_to_string(page, lang="fra+eng") for page in pages)
+
+
 def lire_pdf(contenu: bytes) -> list:
     lecteur = PdfReader(BytesIO(contenu))
     texte_total = "\n".join(page.extract_text() or "" for page in lecteur.pages)
+
+    # Si l'extraction directe ne renvoie presque rien, le PDF est
+    # probablement un scan : on retente en OCR.
+    if len(texte_total.strip()) < 20 * len(lecteur.pages):
+        try:
+            texte_ocr = _ocr_pdf(contenu)
+            if len(texte_ocr.strip()) > len(texte_total.strip()):
+                texte_total = texte_ocr
+        except Exception:
+            pass
+
     return extraire_sujets_depuis_texte(texte_total)
 
 
@@ -148,19 +179,14 @@ def lire_docx(contenu: bytes) -> list:
     return extraire_sujets_depuis_texte("\n".join(lignes))
 
 
-def lire_excel(contenu: bytes) -> list:
-    """Lit un fichier Excel où chaque ligne représente un sujet, avec des
-    colonnes reconnues par leur en-tête (titre, description, entreprise,
-    technologies, durée — insensible à la casse)."""
+def _lignes_tabulaires_vers_sujets(lignes: list) -> list:
+    """Convertit une liste de lignes (en-tête + données) en sujets, en
+    reconnaissant les colonnes par leur intitulé. Utilisé par Excel et CSV."""
 
-    classeur = load_workbook(BytesIO(contenu), data_only=True)
-    feuille = classeur.active
-
-    lignes = list(feuille.iter_rows(values_only=True))
     if not lignes:
         return []
 
-    entetes = [str(cellule).strip().lower() if cellule else "" for cellule in lignes[0]]
+    entetes = [str(cellule).strip().lower() if cellule not in (None, "") else "" for cellule in lignes[0]]
 
     correspondance = {}
     for index, entete in enumerate(entetes):
@@ -180,7 +206,7 @@ def lire_excel(contenu: bytes) -> list:
             if index is None or index >= len(ligne):
                 return None
             cellule = ligne[index]
-            return str(cellule).strip() if cellule is not None else None
+            return str(cellule).strip() if cellule not in (None, "") else None
 
         titre = valeur("titre")
         if not titre:
@@ -192,7 +218,61 @@ def lire_excel(contenu: bytes) -> list:
             "entreprise": valeur("entreprise"),
             "technologies": valeur("technologies"),
             "duree": valeur("duree"),
+            "localisation": valeur("localisation"),
+            "niveau_requis": valeur("niveau_requis"),
             "domaine_indique": valeur("domaine"),
+        })
+
+    return sujets
+
+
+def lire_excel(contenu: bytes) -> list:
+    """Lit un fichier Excel où chaque ligne représente un sujet, avec des
+    colonnes reconnues par leur en-tête (insensible à la casse)."""
+
+    classeur = load_workbook(BytesIO(contenu), data_only=True)
+    feuille = classeur.active
+
+    lignes = list(feuille.iter_rows(values_only=True))
+    return _lignes_tabulaires_vers_sujets(lignes)
+
+
+def lire_csv(contenu: bytes) -> list:
+    """Lit un CSV où chaque ligne représente un sujet (même logique que
+    l'Excel). Format le plus courant pour un export de base externe."""
+
+    texte = contenu.decode("utf-8-sig", errors="replace")
+    lecteur = csv.reader(StringIO(texte))
+    lignes = list(lecteur)
+    return _lignes_tabulaires_vers_sujets(lignes)
+
+
+def lire_json(contenu: bytes) -> list:
+    """Lit un export JSON (liste d'objets) — typiquement une API ou une
+    base de données externe. Les clés doivent correspondre aux noms des
+    champs (titre, description, entreprise, technologies, duree,
+    localisation, niveau_requis)."""
+
+    donnees = json.loads(contenu.decode("utf-8"))
+
+    if isinstance(donnees, dict):
+        donnees = donnees.get("sujets") or donnees.get("data") or [donnees]
+
+    sujets = []
+
+    for entree in donnees:
+        if not isinstance(entree, dict) or not entree.get("titre"):
+            continue
+
+        sujets.append({
+            "titre": str(entree.get("titre")).strip(),
+            "description": str(entree.get("description") or "").strip(),
+            "entreprise": entree.get("entreprise"),
+            "technologies": entree.get("technologies"),
+            "duree": entree.get("duree"),
+            "localisation": entree.get("localisation"),
+            "niveau_requis": entree.get("niveau_requis"),
+            "domaine_indique": entree.get("domaine") or entree.get("departement"),
         })
 
     return sujets
@@ -207,10 +287,15 @@ def lire_fichier(nom_fichier: str, contenu: bytes) -> list:
         return lire_docx(contenu)
     if extension in ("xlsx", "xls"):
         return lire_excel(contenu)
+    if extension == "csv":
+        return lire_csv(contenu)
+    if extension == "json":
+        return lire_json(contenu)
 
     raise ValueError(
         "Format de fichier non pris en charge. "
-        "Formats acceptés : PDF (.pdf), Word (.docx), Excel (.xlsx)."
+        "Formats acceptés : PDF (.pdf), Word (.docx), Excel (.xlsx), "
+        "CSV (.csv) et JSON (.json)."
     )
 
 
@@ -284,3 +369,20 @@ def detecter_doublon(titre_nouveau: str, sujets_existants: list, seuil: float = 
         return meilleur, round(meilleur_score * 100)
 
     return None, 0
+
+
+# DÉTECTION DE SUJETS OBSOLÈTES
+
+def est_obsolete(sujet, seuil_jours: int = SEUIL_OBSOLESCENCE_JOURS) -> bool:
+    """Un sujet est considéré obsolète s'il est toujours "Disponible"
+    (jamais attribué) alors qu'il a été créé il y a plus de seuil_jours."""
+
+    statut = (sujet.statut or "").strip().lower()
+    if statut != "disponible":
+        return False
+
+    date_creation = getattr(sujet, "date_creation", None)
+    if not date_creation:
+        return False
+
+    return (date.today() - date_creation) > timedelta(days=seuil_jours)

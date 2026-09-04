@@ -1,0 +1,64 @@
+// Mappe un statut d'affectation vers une classe CSS de badge
+export const classeBadgeAffectation = (statut) => {
+  switch (statut) {
+    case "Active":
+      return "statut-en-cours";
+    case "Terminée":
+      return "statut-termine";
+    case "Annulée":
+      return "statut-annule";
+    default:
+      return "statut-en-cours";
+  }
+};
+
+// Mappe un rôle utilisateur vers une classe CSS de badge
+export const classeBadgeRole = (role) => {
+  switch (role) {
+    case "admin":
+      return "statut-termine";
+    case "encadrant":
+      return "statut-en-cours";
+    default:
+      return "statut-annule";
+  }
+};
+
+// Mappe un statut de sujet vers une classe CSS de badge
+export const classeBadgeSujet = (statut) => {
+  switch (statut) {
+    case "Disponible":
+      return "statut-en-cours";
+    case "Attribué":
+      return "statut-termine";
+    case "Terminé":
+      return "statut-annule";
+    default:
+      return "statut-en-cours";
+  }
+};
+
+// Palette utilisée par les graphiques (reprend les couleurs de App.css)
+export const PALETTE_GRAPHIQUES = [
+  "#4f46e5", // indigo
+  "#7c3aed", // violet
+  "#0d8a7e", // teal
+  "#dc2626", // rouge
+  "#f59e0b", // ambre
+  "#0ea5e9", // bleu ciel
+  "#a855f7", // violet clair
+];
+
+// Regroupe un tableau d'objets par la valeur d'un champ -> [{ label, valeur }] trié décroissant.
+export const regrouperPar = (liste, champ, libelleParDefaut = "Non renseigné") => {
+  const compteur = {};
+
+  liste.forEach((item) => {
+    const cle = item[champ] || libelleParDefaut;
+    compteur[cle] = (compteur[cle] || 0) + 1;
+  });
+
+  return Object.entries(compteur)
+    .map(([label, valeur]) => ({ label, valeur }))
+    .sort((a, b) => b.valeur - a.valeur);
+};

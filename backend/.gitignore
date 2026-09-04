@@ -1,13 +1,6 @@
-
 .env
-# Python
 __pycache__/
 *.pyc
 venv/
 .venv/
-
-# Base de données locale de test
-*.db 
-.env
-__pycache__/
-*.pyc
+*.db

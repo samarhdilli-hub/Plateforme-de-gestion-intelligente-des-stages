@@ -25,3 +25,15 @@ SessionLocal = sessionmaker(
 )
 
 Base = declarative_base()
+
+
+def get_db():
+    """Ouvre une session de base de données pour la durée d'une requête,
+    et la referme systématiquement ensuite (dépendance FastAPI)."""
+
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()

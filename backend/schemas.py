@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import date
 from typing import Optional
 
@@ -13,6 +13,7 @@ class StagiaireCreate(BaseModel):
     telephone: Optional[str] = None
     universite: Optional[str] = None
     specialite: Optional[str] = None
+    niveau_etude: Optional[str] = None
     date_debut: Optional[date] = None
     date_fin: Optional[date] = None
     statut: Optional[str] = "En cours"
@@ -27,9 +28,12 @@ class StagiaireResponse(BaseModel):
     telephone: Optional[str] = None
     universite: Optional[str] = None
     specialite: Optional[str] = None
+    niveau_etude: Optional[str] = None
     date_debut: Optional[date] = None
     date_fin: Optional[date] = None
     statut: Optional[str] = None
+    archive: bool = False
+    date_creation: Optional[date] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -42,6 +46,8 @@ class SujetCreate(BaseModel):
     entreprise: Optional[str] = None
     technologies: Optional[str] = None
     duree: Optional[str] = None
+    localisation: Optional[str] = None
+    niveau_requis: Optional[str] = None
     statut: Optional[str] = "Disponible"
     categorie: Optional[str] = None
 
@@ -53,13 +59,17 @@ class SujetResponse(BaseModel):
     entreprise: Optional[str] = None
     technologies: Optional[str] = None
     duree: Optional[str] = None
+    localisation: Optional[str] = None
+    niveau_requis: Optional[str] = None
     statut: Optional[str] = None
     categorie: Optional[str] = None
+    date_creation: Optional[date] = None
+    obsolete: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
 
-# IMPORT INTELLIGENT DE SUJETS (PDF / Word / Excel)
+# IMPORT INTELLIGENT DE SUJETS (PDF / Word / Excel / URL)
 
 class DoublonProbable(BaseModel):
     id: int
@@ -73,6 +83,8 @@ class SujetExtrait(BaseModel):
     entreprise: Optional[str] = None
     technologies: Optional[str] = None
     duree: Optional[str] = None
+    localisation: Optional[str] = None
+    niveau_requis: Optional[str] = None
     statut: Optional[str] = "Disponible"
     categorie: Optional[str] = None
     doublon_probable: Optional[DoublonProbable] = None
@@ -82,6 +94,10 @@ class ResultatImportSujets(BaseModel):
     nombre_extrait: int
     nombre_doublons_potentiels: int
     sujets_extraits: list[SujetExtrait]
+
+
+class ImportUrlRequest(BaseModel):
+    url: str
 
 
 # AFFECTATION
@@ -99,6 +115,25 @@ class AffectationResponse(BaseModel):
     sujet_id: int
     date_affectation: Optional[date] = None
     statut: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# EVALUATION
+
+class EvaluationCreate(BaseModel):
+    affectation_id: int
+    note: int = Field(ge=0, le=20)
+    commentaire: Optional[str] = None
+    date_evaluation: Optional[date] = None
+
+
+class EvaluationResponse(BaseModel):
+    id: int
+    affectation_id: int
+    note: int
+    commentaire: Optional[str] = None
+    date_evaluation: Optional[date] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -1,4 +1,6 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean
+from datetime import date
+
+from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -24,10 +26,16 @@ class Stagiaire(Base):
 
     specialite = Column(String(150), nullable=True)
 
+    niveau_etude = Column(String(100), nullable=True)
+
     date_debut = Column(Date, nullable=True)
     date_fin = Column(Date, nullable=True)
 
     statut = Column(String(50), nullable=True)
+
+    archive = Column(Boolean, nullable=False, default=False)
+
+    date_creation = Column(Date, nullable=False, default=date.today)
 
 
 # TABLE SUJETS DE STAGE
@@ -47,11 +55,15 @@ class SujetStage(Base):
 
     duree = Column(String(100), nullable=True)
 
+    localisation = Column(String(150), nullable=True)
+
+    niveau_requis = Column(String(100), nullable=True)
+
     statut = Column(String(50), nullable=True)
 
-    # Domaine attribué automatiquement par le moteur de catégorisation
-    # lors de l'import intelligent (ou choisi manuellement).
     categorie = Column(String(100), nullable=True)
+
+    date_creation = Column(Date, nullable=False, default=date.today)
 
 
 # TABLE AFFECTATIONS
@@ -93,6 +105,34 @@ class Affectation(Base):
         "SujetStage",
         backref="affectations"
     )
+
+    evaluation = relationship(
+        "Evaluation",
+        backref="affectation",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+
+# TABLE EVALUATIONS
+
+class Evaluation(Base):
+    __tablename__ = "evaluations"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    affectation_id = Column(
+        Integer,
+        ForeignKey("affectations.id"),
+        nullable=False,
+        unique=True
+    )
+
+    note = Column(Integer, nullable=False)
+
+    commentaire = Column(Text, nullable=True)
+
+    date_evaluation = Column(Date, nullable=False, default=date.today)
 
 
 # TABLE UTILISATEURS
